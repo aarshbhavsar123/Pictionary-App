@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pictionary App</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f4f4f4;
+            color: #333;
+        }
+
+        #chat-container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #fff;
+            padding: 20px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            border-radius: 5px;
+        }
+
+        #messages {
+            list-style-type: none;
+            margin: 0;
+            padding: 0;
+        }
+
+        #messages li {
+            margin-bottom: 10px;
+            word-wrap: break-word;
+        }
+
+        #form {
+            display: flex;
+            margin-top: 10px;
+        }
+
+        #message-input {
+            flex: 1;
+            padding: 8px;
+            font-size: 16px;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+            margin-right: 10px;
+        }
+
+        #submit-btn {
+            padding: 8px 15px;
+            font-size: 16px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div id="chat-container">
+        <ul id="messages"></ul>
+        <form id="form" action="">
+            <input id="message-input" autocomplete="off" placeholder="Type your message..." />
+            <button id="submit-btn">Send</button>
+        </form>
+    </div>
+
+    <script src="https://cdn.socket.io/4.0.1/socket.io.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
+    <script>
+        const socket = io();
+
+        $(document).ready(() => {
+            const username = prompt('Enter your username:');
+            const roomId = prompt('Enter the room ID:');
+
+            // Emit 'join' event to inform the server about the new user
+            socket.emit('join', { roomId, username });
+
+            // Handle the 'chat message' event to display messages
+            socket.on('chat message', (msg) => {
+                $('#messages').append($('<li>').text(msg));
+                window.scrollTo(0, document.body.scrollHeight);
+            });
+
+            // Handle form submission to send messages
+            $('#form').submit((e) => {
+                e.preventDefault();
+                const message = $('#message-input').val();
+                if (message.trim() !== '') {
+                    socket.emit('chat message', message);
+                    $('#message-input').val('');
+                }
+                return false;
+            });
+        });
+    </script>
+</body>
+</html>
