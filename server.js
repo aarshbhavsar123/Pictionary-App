@@ -17,7 +17,6 @@ app.get('/', (req, res) => {
 const clients = {};
 
 io.on('connection', (socket) => {
-    console.log('A user connected');
 
     // Handle the event when a new user joins
     socket.on('join', (data) => {
@@ -39,6 +38,7 @@ io.on('connection', (socket) => {
     socket.on('disconnect', () => {
         const { username, roomId } = clients[socket.id];
         io.to(roomId).emit('chat message', `${username} has left the chat`);
+        
         delete clients[socket.id];
     });
 });
