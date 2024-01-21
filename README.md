@@ -1,0 +1,1 @@
+In this project, I am working on a Pictionary App in NodeJS using sockets. The npm packages used in this project are express, socket.io and http. Client sends the http request to the server for connection. Once the connection is established between server and client, data can be transferred to and fro from server to client and from client to to the server as well.
