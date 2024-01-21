@@ -77,16 +77,16 @@
             const username = prompt('Enter your username:');
             const roomId = prompt('Enter the room ID:');
 
-            // Emit 'join' event to inform the server about the new user
+            
             socket.emit('join', { roomId, username });
 
-            // Handle the 'chat message' event to display messages
+            
             socket.on('chat message', (msg) => {
                 $('#messages').append($('<li>').text(msg));
                 window.scrollTo(0, document.body.scrollHeight);
             });
 
-            // Handle form submission to send messages
+            
             $('#form').submit((e) => {
                 e.preventDefault();
                 const message = $('#message-input').val();
