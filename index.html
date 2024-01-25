@@ -14,13 +14,46 @@
             color: #333;
         }
 
-        #chat-container {
+        #pictionary-container {
             max-width: 600px;
             margin: 0 auto;
             background-color: #fff;
             padding: 20px;
             box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
             border-radius: 5px;
+        }
+
+        #drawing-canvas {
+            border: 1px solid #000;
+            margin-bottom: 10px;
+        }
+
+        #form {
+            display: flex;
+            margin-top: 10px;
+        }
+
+        #guess-input {
+            flex: 1;
+            padding: 8px;
+            font-size: 16px;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+            margin-right: 10px;
+        }
+
+        #submit-guess-btn {
+            padding: 8px 15px;
+            font-size: 16px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+
+        #room-info {
+            margin-bottom: 10px;
         }
 
         #messages {
@@ -34,38 +67,21 @@
             word-wrap: break-word;
         }
 
-        #form {
-            display: flex;
-            margin-top: 10px;
-        }
-
-        #message-input {
-            flex: 1;
-            padding: 8px;
-            font-size: 16px;
-            border: 1px solid #ccc;
-            border-radius: 3px;
-            margin-right: 10px;
-        }
-
-        #submit-btn {
-            padding: 8px 15px;
-            font-size: 16px;
-            background-color: #4CAF50;
-            color: white;
-            border: none;
-            border-radius: 3px;
-            cursor: pointer;
-        }
     </style>
 </head>
 <body>
-    <div id="chat-container">
-        <ul id="messages"></ul>
+    <div id="pictionary-container">
+        <div id="room-info"></div>
+        <canvas id="drawing-canvas" width="600" height="400"></canvas>
+        <button id="create-room-btn">Create Room</button>
+        <button id="join-room-btn">Join Room</button>
+        <button id="generate-word-btn">Generate Word</button>
+        <div id="generated-word"></div>
         <form id="form" action="">
-            <input id="message-input" autocomplete="off" placeholder="Type your message..." />
-            <button id="submit-btn">Send</button>
+            <input id="guess-input" autocomplete="off" placeholder="Guess the drawing..." />
+            <button id="submit-guess-btn">Submit Guess</button>
         </form>
+        <ul id="messages"></ul>
     </div>
 
     <script src="https://cdn.socket.io/4.0.1/socket.io.min.js"></script>
@@ -74,27 +90,128 @@
         const socket = io();
 
         $(document).ready(() => {
-            const username = prompt('Enter your username:');
+            const startDrawing = () => {
+            socket.emit('start-drawing', { roomId, username });
+         };
+
+        $('#start-drawing-btn').click(() => {
+            startDrawing();
+        });
+            const createRoom = () => {
+                $.post('/create-room', (data) => {
+                    const roomId = data.roomId;
+                    $('#room-info').text(`Room ID: ${roomId}`);
+                    const username = prompt('Enter your username:');
+                    socket.emit('join', { roomId, username });
+                });
+            };
+
+            const joinRoom = () => {
             const roomId = prompt('Enter the room ID:');
+            const username = prompt('Enter your username:');
+            $.ajax({
+                type: 'POST',
+                url: '/join-room',
+                contentType: 'application/json',
+                data: JSON.stringify({ roomId, username }),
+                success: (data) => {
+                    if (data.success) {
+                        $('#room-info').text(`Room ID: ${roomId}`);
+                        socket.emit('join', { roomId, username });
+                    } else {
+                        alert(data.message);
+                    }
+                },
+            });
+        };
 
-            
-            socket.emit('join', { roomId, username });
 
+            $('#create-room-btn').click(() => {
+                createRoom();
+            });
+
+            $('#join-room-btn').click(() => {
+                joinRoom();
+            });
             
-            socket.on('chat message', (msg) => {
-                $('#messages').append($('<li>').text(msg));
+            const generateWord = () => {
+                $.ajax({
+                    type: 'POST',
+                    url: '/generate-word',
+                    contentType: 'application/json',
+                    data: JSON.stringify({ roomId, username }),
+                    success: (data) => {
+                        if (data.success) {
+                            // Display the generated word to the person who generated it
+                            $('#generated-word').text(`Generated word: ${data.wordToDraw}`);
+
+                            // Enable drawing for the user who generated the word
+                            isDrawing = true;
+                        } else {
+                            alert(data.message);
+                        }
+                    },
+                });
+            };
+
+            $('#generate-word-btn').click(() => {
+                generateWord();
+            });
+            const canvas = document.getElementById('drawing-canvas');
+            const ctx = canvas.getContext('2d');
+            let isDrawing = false;
+
+            canvas.addEventListener('mousedown', (e) => {
+                isDrawing = true;
+            });
+
+            canvas.addEventListener('mousemove', (e) => {
+                if (!isDrawing) return;
+                const rect = canvas.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+
+                // Draw on canvas
+                ctx.beginPath();
+                ctx.arc(x, y, 5, 0, 2 * Math.PI);
+                ctx.fill();
+
+                // Emit drawing data to other users
+                socket.emit('draw', { x, y });
+            });
+
+            canvas.addEventListener('mouseup', () => {
+                isDrawing = false;
+            });
+
+            socket.on('draw', (drawingData) => {
+                ctx.beginPath();
+                ctx.arc(drawingData.x, drawingData.y, 5, 0, 2 * Math.PI);
+                ctx.fill();
+            });
+
+            $('#form').submit((e) => {
+                e.preventDefault();
+                const guess = $('#guess-input').val();
+                socket.emit('guess', { guess });
+                $('#guess-input').val('');
+                return false;
+            });
+
+            socket.on('guess', (guessData) => {
+                const { username } = guessData;
+                const guessedUsername = prompt('Guess the drawing:');
+                if (guessedUsername === username) {
+                    $('#messages').append($('<li style="color: green;">').text(`${username} guessed it correctly!`));
+                } else {
+                    $('#messages').append($('<li style="color: red;">').text(`${guessedUsername} made a wrong guess!`));
+                }
                 window.scrollTo(0, document.body.scrollHeight);
             });
 
-            
-            $('#form').submit((e) => {
-                e.preventDefault();
-                const message = $('#message-input').val();
-                if (message.trim() !== '') {
-                    socket.emit('chat message', message);
-                    $('#message-input').val('');
-                }
-                return false;
+            socket.on('chat message', (msg) => {
+                $('#messages').append($('<li>').text(msg));
+                window.scrollTo(0, document.body.scrollHeight);
             });
         });
     </script>
