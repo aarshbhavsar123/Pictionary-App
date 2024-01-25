@@ -77,6 +77,7 @@
         <button id="join-room-btn">Join Room</button>
         <button id="generate-word-btn">Generate Word</button>
         <div id="generated-word"></div>
+        <div id="timer"></div>
         <form id="form" action="">
             <input id="guess-input" autocomplete="off" placeholder="Guess the drawing..." />
             <button id="submit-guess-btn">Submit Guess</button>
@@ -93,7 +94,6 @@
             const startDrawing = () => {
             socket.emit('start-drawing', { roomId, username });
          };
-
         $('#start-drawing-btn').click(() => {
             startDrawing();
         });
@@ -124,39 +124,69 @@
                 },
             });
         };
+        let timerInterval;
+            let timerSeconds = 60; // Set the timer duration in seconds
 
+            const startTimer = () => {
+            const timerElement = document.getElementById('timer');
 
-            $('#create-room-btn').click(() => {
-                createRoom();
+            timerInterval = setInterval(() => {
+            if (timerSeconds > 0) {
+                timerElement.textContent = `Time left: ${timerSeconds} seconds`;
+                timerSeconds--;
+            } else {
+                clearInterval(timerInterval);
+                timerElement.textContent = 'Time is up!';
+            }
+        }, 1000);
+    };
+    let roomId; // Add this line to declare the roomId variable
+        let username; // Add this line to declare the username variable
+
+        // ... (your existing code)
+
+        const generateWord = () => {
+            const queryParams = `?roomId=${roomId}&username=${username}`;
+
+            // Make an Ajax request to the /generate-word endpoint with query parameters
+            $.ajax({
+                type: 'GET',
+                url: `/generate-word${queryParams}`,
+                success: (data) => {
+                    if (data.success) {
+                        // Display the generated word to the person who generated it
+                        $('#generated-word').text(`Generated word: ${data.wordToDraw}`);
+
+                        // Enable drawing for the user who generated the word
+                        isDrawing = true;
+
+                        // Start the timer when the word is generated
+                        startTimer();
+                    } else {
+                        alert(data.message);
+                    }
+                },
+                error: (error) => {
+                    console.error('Error generating word:', error);
+                },
             });
+        };
+
+        $('#create-room-btn').click(() => {
+            createRoom();
+        });
 
             $('#join-room-btn').click(() => {
                 joinRoom();
             });
-            
-            const generateWord = () => {
-                $.ajax({
-                    type: 'POST',
-                    url: '/generate-word',
-                    contentType: 'application/json',
-                    data: JSON.stringify({ roomId, username }),
-                    success: (data) => {
-                        if (data.success) {
-                            // Display the generated word to the person who generated it
-                            $('#generated-word').text(`Generated word: ${data.wordToDraw}`);
-
-                            // Enable drawing for the user who generated the word
-                            isDrawing = true;
-                        } else {
-                            alert(data.message);
-                        }
-                    },
-                });
-            };
-
             $('#generate-word-btn').click(() => {
                 generateWord();
             });
+           
+    
+
+        
+
             const canvas = document.getElementById('drawing-canvas');
             const ctx = canvas.getContext('2d');
             let isDrawing = false;

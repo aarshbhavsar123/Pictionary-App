@@ -22,6 +22,19 @@ app.post('/create-room', (req, res) => {
     rooms[roomId] = { clients: [], drawingUser: null, wordToDraw: null, guessedWords: [] };
     res.json({ roomId });
 });
+app.get('/generate-word', (req, res) => {
+    const { roomId, username } = req.query;
+    const room = rooms[roomId];
+
+    // Check if the user is in the room and is the drawing user
+    if (room && room.clients.length > 0 && room.clients[0].username === username) {
+        room.wordToDraw = generateRandomWord();
+        io.to(roomId).emit('generated-word', { wordToDraw: room.wordToDraw });
+        res.json({ success: true, wordToDraw: room.wordToDraw });
+    } else {
+        res.json({ success: false, message: 'You do not have permission to generate a word.' });
+    }
+});
 
 app.post('/join-room', (req, res) => {
     const { roomId, username } = req.body;
