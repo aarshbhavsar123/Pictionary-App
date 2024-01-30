@@ -22,7 +22,7 @@ app.post('/create-room', (req, res) => {
     rooms[roomId] = { clients: [], drawingUser: null, wordToDraw: null, guessedWords: [] };
     res.json({ roomId });
 });
-app.get('/generate-word', (req, res) => {
+app.post('/generate-word', (req, res) => {
     const { roomId, username } = req.query;
     const room = rooms[roomId];
 
@@ -178,11 +178,7 @@ function generateRoomId() {
     return Math.random().toString(36).substring(2, 7).toUpperCase();
 }
 
-function generateRandomWord() {
-    const words = ['apple', 'banana', 'cherry', 'dog', 'elephant', 'frog', 'guitar', 'house', 'island', 'jungle'];
-    const randomIndex = Math.floor(Math.random() * words.length);
-    return words[randomIndex];
-}
+
 
 server.listen(PORT, () => {
     console.log(`Server listening on port ${PORT}`);

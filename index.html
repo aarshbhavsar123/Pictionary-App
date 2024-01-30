@@ -28,6 +28,10 @@
             margin-bottom: 10px;
         }
 
+        #color-picker {
+            margin-left: 10px;
+        }
+
         #form {
             display: flex;
             margin-top: 10px;
@@ -42,16 +46,49 @@
             margin-right: 10px;
         }
 
-        #submit-guess-btn {
-            padding: 8px 15px;
+        #submit-guess-btn,
+        #create-room-btn,
+        #join-room-btn,
+        #generate-word-btn {
+            padding: 10px 20px;
             font-size: 16px;
-            background-color: #4CAF50;
-            color: white;
             border: none;
-            border-radius: 3px;
+            border-radius: 5px;
             cursor: pointer;
+            color: #fff;
+            transition: background-color 0.3s;
         }
 
+        #submit-guess-btn {
+            background-color: #3498db;
+            border: #000;
+        }
+
+        #create-room-btn {
+            background-color: #3498db;
+            border: #000;
+        }
+
+        #join-room-btn {
+            background-color: #3498db;
+            border: #000;
+        }
+
+        #generate-word-btn {
+            background-color: #3498db;
+            border: #000;
+        }
+         #eraser-btn {
+            padding: 10px 20px;
+            font-size: 16px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            color: #fff;
+            transition: background-color 0.3s;
+            background-color: #e74c3c;
+            border: #000;
+        }
         #room-info {
             margin-bottom: 10px;
         }
@@ -66,16 +103,17 @@
             margin-bottom: 10px;
             word-wrap: break-word;
         }
-
     </style>
 </head>
 <body>
     <div id="pictionary-container">
         <div id="room-info"></div>
         <canvas id="drawing-canvas" width="600" height="400"></canvas>
+        <input type="color" id="color-picker" value="#000000">
         <button id="create-room-btn">Create Room</button>
         <button id="join-room-btn">Join Room</button>
         <button id="generate-word-btn">Generate Word</button>
+        <button id="eraser-btn">Eraser</button>
         <div id="generated-word"></div>
         <div id="timer"></div>
         <form id="form" action="">
@@ -103,27 +141,30 @@
                     $('#room-info').text(`Room ID: ${roomId}`);
                     const username = prompt('Enter your username:');
                     socket.emit('join', { roomId, username });
+                    isPartOfRoom = true;
                 });
             };
 
             const joinRoom = () => {
-            const roomId = prompt('Enter the room ID:');
-            const username = prompt('Enter your username:');
-            $.ajax({
-                type: 'POST',
-                url: '/join-room',
-                contentType: 'application/json',
-                data: JSON.stringify({ roomId, username }),
-                success: (data) => {
-                    if (data.success) {
-                        $('#room-info').text(`Room ID: ${roomId}`);
-                        socket.emit('join', { roomId, username });
-                    } else {
-                        alert(data.message);
-                    }
-                },
-            });
-        };
+                const roomId = prompt('Enter the room ID:');
+                const username = prompt('Enter your username:');
+                $.ajax({
+                    type: 'POST',
+                    url: '/join-room',
+                    contentType: 'application/json',
+                    data: JSON.stringify({ roomId, username }),
+                    success: (data) => {
+                        if (data.success) {
+                            $('#room-info').text(`Room ID: ${roomId}`);
+                            socket.emit('join', { roomId, username });
+                            isPartOfRoom = true; // Set the variable to true
+                        } else {
+                            alert(data.message);
+                        }
+                    },
+                });
+            };
+
         let timerInterval;
             let timerSeconds = 60; // Set the timer duration in seconds
 
@@ -146,32 +187,33 @@
         // ... (your existing code)
 
         const generateWord = () => {
-            const queryParams = `?roomId=${roomId}&username=${username}`;
+                // Check if the user is the owner of the room
+                const isRoomOwner = isPartOfRoom && rooms[roomId].clients.length > 0 && rooms[roomId].clients[0].username === username;
 
-            // Make an Ajax request to the /generate-word endpoint with query parameters
-            $.ajax({
-                type: 'GET',
-                url: `/generate-word${queryParams}`,
-                success: (data) => {
-                    if (data.success) {
-                        // Display the generated word to the person who generated it
-                        $('#generated-word').text(`Generated word: ${data.wordToDraw}`);
+                if (isRoomOwner) {
+                    // Generate a random word
+                    const generatedWord = generateRandomWord();
 
-                        // Enable drawing for the user who generated the word
-                        isDrawing = true;
+                    // Display the generated word
+                    $('#generated-word').text(`Generated word: ${generatedWord}`);
 
-                        // Start the timer when the word is generated
-                        startTimer();
-                    } else {
-                        alert(data.message);
-                    }
-                },
-                error: (error) => {
-                    console.error('Error generating word:', error);
-                },
-            });
-        };
+                    // Enable drawing for the user who generated the word
+                    isDrawing = true;
 
+                    // Start the timer when the word is generated
+                    startTimer();
+
+                    // Broadcast the generated word to others in the room
+                    socket.emit('generated-word', { roomId, generatedWord });
+                } else {
+                    alert('You do not have permission to generate a word.');
+                }
+            };
+            function generateRandomWord() {
+                const words = ['apple', 'banana', 'cherry', 'dog', 'elephant', 'frog', 'guitar', 'house', 'island', 'jungle'];
+                const randomIndex = Math.floor(Math.random() * words.length);
+                return words[randomIndex];
+}
         $('#create-room-btn').click(() => {
             createRoom();
         });
@@ -183,41 +225,56 @@
                 generateWord();
             });
            
-    
-
-        
-
             const canvas = document.getElementById('drawing-canvas');
             const ctx = canvas.getContext('2d');
             let isDrawing = false;
-
+            let selectedColor = '#000000';
+            let eraserMode = false;
+            $('#color-picker').change(() => {
+                selectedColor = $('#color-picker').val();
+                eraserMode = false;
+            });
+            $('#eraser-btn').click(() => {
+                // Set the color to white for eraser effect
+                eraserMode = !eraserMode;
+                selectedColor = eraserMode ? '#ffffff' : $('#color-picker').val();
+            });
             canvas.addEventListener('mousedown', (e) => {
-                isDrawing = true;
+                if (isPartOfRoom) {
+                    isDrawing = true;
+                }
             });
-
             canvas.addEventListener('mousemove', (e) => {
-                if (!isDrawing) return;
-                const rect = canvas.getBoundingClientRect();
-                const x = e.clientX - rect.left;
-                const y = e.clientY - rect.top;
+                if (isPartOfRoom && isDrawing) {
+                    const rect = canvas.getBoundingClientRect();
+                    const x = e.clientX - rect.left;
+                    const y = e.clientY - rect.top;
 
-                // Draw on canvas
-                ctx.beginPath();
-                ctx.arc(x, y, 5, 0, 2 * Math.PI);
-                ctx.fill();
+                    if (eraserMode) {
+                        // Clear the portion of the canvas
+                        ctx.clearRect(x - 5, y - 5, 10, 10);
+                    } else {
+                        // Draw
+                        ctx.lineTo(x, y);
+                        ctx.strokeStyle = selectedColor;
+                        ctx.lineWidth = 5;
+                        ctx.stroke();
 
-                // Emit drawing data to other users
-                socket.emit('draw', { x, y });
+                        socket.emit('draw', { x, y, color: selectedColor });
+                    }
+                }
             });
-
             canvas.addEventListener('mouseup', () => {
-                isDrawing = false;
+                if (isPartOfRoom) {
+                    isDrawing = false;
+                }
             });
 
             socket.on('draw', (drawingData) => {
-                ctx.beginPath();
-                ctx.arc(drawingData.x, drawingData.y, 5, 0, 2 * Math.PI);
-                ctx.fill();
+                ctx.strokeStyle = drawingData.color;
+                ctx.lineWidth = 5;
+                ctx.lineTo(drawingData.x, drawingData.y);
+                ctx.stroke();
             });
 
             $('#form').submit((e) => {
@@ -243,6 +300,10 @@
                 $('#messages').append($('<li>').text(msg));
                 window.scrollTo(0, document.body.scrollHeight);
             });
+            socket.on('generated-word', (data) => {
+            // Display the generated word for other users in the room
+            $('#generated-word').text(`Generated word: ${data.generatedWord}`);
+        });
         });
     </script>
 </body>
